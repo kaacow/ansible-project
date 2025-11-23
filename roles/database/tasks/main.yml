@@ -1,0 +1,47 @@
+---
+# tasks file for roles/database
+- name: Install MySQL server
+  apt:
+    name: mysql-server
+    state: present
+    update_cache: yes
+
+- name: Ensure MySQL service is running
+  service:
+    name: mysql
+    state: started
+    enabled: yes
+
+- name: Create database for webapp
+  mysql_db:
+    name: myappdb
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+- name: Create database user
+  mysql_user:
+    name: myappuser
+    password: "{{ db_password }}"
+    priv: 'myappdb.*:ALL'
+    host: "%"
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+- name: Create users table and insert initial admin user
+  copy:
+    dest: /tmp/create_users.sql
+    content: |
+      CREATE TABLE IF NOT EXISTS users (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          username VARCHAR(50) NOT NULL UNIQUE,
+          password VARCHAR(50) NOT NULL
+      );
+      INSERT IGNORE INTO users (username, password) VALUES ('admin', 'admin');
+
+- name: Import initial users table
+  mysql_db:
+    name: myappdb
+    state: import
+    target: /tmp/create_users.sql
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+

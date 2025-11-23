@@ -1,0 +1,42 @@
+---
+# tasks file for roles/webapp
+- name: Install Docker
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Ensure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Copy webapp files to remote host
+  copy:
+    src: "{{ role_path }}/files/"
+    dest: "/tmp/webapp_files"
+    mode: '0755'
+
+- name: Build webapp Docker image
+  community.docker.docker_image:
+    name: webapp_image
+    tag: latest
+    source: build
+    build:
+      path: "/tmp/webapp_files"
+      pull: yes
+
+- name: Run webapp container
+  community.docker.docker_container:
+    name: webapp
+    image: webapp_image:latest
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    env:
+      DB_HOST: 192.168.70.130
+      DB_USER: myappuser
+      DB_PASS: "{{ db_password }}"
+      DB_NAME: myappdb
+
